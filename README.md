@@ -3,11 +3,9 @@ Automatically synchronise watched TV Shows to Trakt.tv and movies to Letterboxd
 
 ## Setup
 Download `trakt_letterboxd_sync.py` and `sync_settings.ini.example` to your Tautulli host.
-Rename `sync_settings.ini.example` to `sync_settings.ini` and add the `user_ids`, `client_id` and `client_secret`.
+Rename `sync_settings.ini.example` to `sync_settings.ini` and add the `user_ids`, `client_id`, `client_secret`, `api_key` and `api_secret`. See below for more info on these settings.
 
 **Important!** Make sure `sync-settings.ini` is writable
-
-More info below.
 
 ### Settings
 `./sync-settings.ini`
@@ -66,6 +64,7 @@ Tautulli > Settings > Notification Agents > New Script > Script Arguments:
   
   Select: Watched
   Arguments:  --contentType {media_type}
+              <movie>--imdbId {imdb_id}</movie>
               <episode>--tvdbId {thetvdb_id} --season {season_num} --episode {episode_num}</episode>
 
   Save
