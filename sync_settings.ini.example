@@ -8,3 +8,8 @@ access_token =
 refresh_token = 
 
 [Letterboxd]
+api_key = 
+api_secret = 
+access_token = 
+refresh_token = 
+

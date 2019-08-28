@@ -15,11 +15,16 @@ Settings:
 
   To set the access code use `urn:ietf:wg:oauth:2.0:oob` as a redirect URI on your application.
   Then execute the script:
-  python ./trakt_letterboxd_sync.py --contentType trakt_authenticate
+  python ./trakt_letterboxd_sync.py --contentType trakt_authenticate --userId -1
   And follow the instructions shown.
 
   [Letterboxd]
-  @TODO
+  Update `api_key` and `api_secret` with your Letterboxd API Key and API Shared Secret respectively.
+  Look [here](https://letterboxd.com/api-beta/) as for how to receive these credentials.
+
+  To set the access code execute the script:
+  python ./trakt_letterboxd_sync.py --contentType letterboxd_authenticate --userId -1
+  And follow the instructions shown.
 
 Adding the script to Tautulli:
 Tautulli > Settings > Notification Agents > Add a new notification agent > Script
@@ -62,6 +67,12 @@ import requests
 import json
 import argparse
 import datetime
+import time
+import uuid
+import hmac
+from getpass import getpass
+from hashlib import sha256
+import binascii
 
 from ConfigParser import ConfigParser, NoOptionError, NoSectionError
 
@@ -250,8 +261,188 @@ class Trakt:
     r = requests.post('https://api.trakt.tv/sync/history', json=payload, headers=headers)
 
 class Letterboxd:
-  def __init__(self):
-    self.imdb = None
+  def __init__(self, imdb_id):
+    self.base_url = 'https://api.letterboxd.com/api/v0'
+    self.imdb_id = imdb_id
+
+    self.session = requests.Session()
+    self.session.params = {}
+
+    try:
+      self.api_key = config.get('Letterboxd', 'api_key')
+    except (NoSectionError, NoOptionError):
+      print('ERROR: %s not setup - missing api_key' % credential_file)
+      sys.exit(1)
+
+    try:
+      self.api_secret = config.get('Letterboxd', 'api_secret')
+    except (NoSectionError, NoOptionError):
+      print('ERROR: %s not setup - missing api_secret' % credential_file)
+      sys.exit(1)
+
+  def get_access_token(self):
+    try:
+      return config.get('Letterboxd', 'access_token')
+    except (NoSectionError, NoOptionError):
+      print('ERROR: %s not setup - missing access_token' % credential_file)
+      sys.exit(1)
+
+  def get_refresh_token(self):
+    try:
+      return config.get('Letterboxd', 'refresh_token')
+    except (NoSectionError, NoOptionError):
+      print('ERROR: %s not setup - missing refresh_token' % credential_file)
+      sys.exit(1)
+
+  def get_request_params(self):
+    return {
+      'apikey': self.api_key,
+      'nonce': uuid.uuid4(),
+      'timestamp': int(time.time())
+    }
+
+  def prepare_request(self, method, url, data, params, headers):
+    request = requests.Request(method.upper(), url, data=data, params=params, headers=headers)
+
+    return self.session.prepare_request(request)
+
+  def get_signature(self, prepared_request):
+    if prepared_request.body == None:
+      body = ''
+    else:
+      body = prepared_request.body
+
+    signing_bytestring = b"\x00".join(
+      [str.encode(prepared_request.method), str.encode(prepared_request.url), str.encode(body)]
+    )
+
+    signature = hmac.new(str.encode(self.api_secret), signing_bytestring, digestmod=sha256)
+    return signature.hexdigest()
+
+  def authenticate(self):
+    method = 'post'
+    url = self.base_url + '/auth/token'
+
+    headers = {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Accept': 'application/json'
+    }
+
+    username = raw_input('Username or email address: ')
+    password = getpass('Password: ')
+
+    payload = {
+      'grant_type': 'password',
+      'username': username,
+      'password': password
+    }
+
+    params = self.get_request_params()
+
+    request = self.prepare_request(method, url, payload, params, headers)
+    signature = self.get_signature(request)
+    request.headers['Authorization'] = 'Signature ' + signature
+
+    r = self.session.send(request)
+    if r.status_code == 400:
+      print('Something went wrong, you have probably used invalid credentials')
+      return
+
+    response = r.json()
+
+    config.set('Letterboxd', 'access_token', response['access_token'])
+    config.set('Letterboxd', 'refresh_token', response['refresh_token'])
+    write_settings()
+
+    print('Succesfully configured your Letterboxd sync!')
+
+  def refresh_access_token(self):
+    method = 'post'
+    url = self.base_url + '/auth/token'
+
+    headers = {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Accept': 'application/json'
+    }
+
+    payload = {
+      'grant_type': 'refresh_token',
+      'refresh_token': self.get_refresh_token()
+    }
+
+    params = self.get_request_params()
+
+    request = self.prepare_request(method, url, payload, params, headers)
+    signature = self.get_signature(request)
+    request.headers['Authorization'] = 'Signature ' + signature
+
+    r = self.session.send(request)
+    if r.status_code == 400:
+      print('Something went wrong, please authorize using `python ./trakt_letterboxd_sync.py --contentType letterboxd_authenticate --userId -1`')
+      return
+
+    response = r.json()
+
+    config.set('Letterboxd', 'access_token', response['access_token'])
+    config.set('Letterboxd', 'refresh_token', response['refresh_token'])
+    write_settings()
+
+    print('Refreshed access token succesfully!')
+
+  def get_film_id(self):
+    method = 'get'
+    url = self.base_url + '/films'
+
+    headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    }
+
+    payload = None
+
+    params = self.get_request_params()
+    params['filmId'] = 'imdb:' + self.imdb_id
+
+    request = self.prepare_request(method, url, payload, params, headers)
+    signature = self.get_signature(request)
+    request.prepare_url(request.url, {'signature': signature})
+
+    r = self.session.send(request)
+
+    response = r.json()
+    return response['items'][0]['id']
+
+  def log_entry(self):
+    method = 'post'
+    url = self.base_url + '/log-entries'
+
+    headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    }
+
+    payload = {
+      'filmId': self.get_film_id(),
+      'diaryDetails': {
+        'diaryDate': datetime.datetime.today().strftime('%Y-%m-%d')
+      },
+      'tags': [
+        'plex'
+      ]
+    }
+    payload = json.dumps(payload)
+
+    params = self.get_request_params()
+
+    request = self.prepare_request(method, url, payload, params, headers)
+    signature = self.get_signature(request)
+    request.prepare_url(request.url, {'signature': signature})
+    request.headers['Authorization'] = 'Bearer ' + self.get_access_token()
+
+    r = self.session.send(request)
+
+    response = r.json()
+    print('Successfully logged diary entry.')
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(
@@ -272,9 +463,12 @@ if __name__ == "__main__":
   parser.add_argument('--episode', type=int,
                       help='Episode number.')
 
+  parser.add_argument('--imdbId', type=arg_decoding,
+                      help='IMDB ID.')
+
   opts = parser.parse_args()
 
-  if not sync_for_user(opts.userId):
+  if not sync_for_user(opts.userId) and not opts.userId == -1:
     print('We will not sync for this user')
     sys.exit(0)
 
@@ -284,10 +478,19 @@ if __name__ == "__main__":
   elif opts.contentType == 'trakt_refresh':
     trakt = Trakt(None, None)
     trakt.refresh_access_token()
+  elif opts.contentType == 'letterboxd_authenticate':
+    letterboxd = Letterboxd(None)
+    letterboxd.authenticate()
+  elif opts.contentType == 'letterboxd_refresh':
+    letterboxd = Letterboxd(None)
+    letterboxd.refresh_access_token()
   elif opts.contentType == 'movie':
-    letterboxd = Letterboxd()
+    letterboxd = Letterboxd(opts.imdbId)
+    letterboxd.refresh_access_token()
+    letterboxd.log_entry()
   elif opts.contentType == 'episode':
     trakt = Trakt(opts.tvdbId, opts.season, opts.episode)
     trakt.refresh_access_token()
     trakt.sync_history()
-
+  else:
+    print('ERROR: %s not found - invalid contentType' % opts.contentType)
