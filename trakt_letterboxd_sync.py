@@ -2,6 +2,9 @@
 Description: Sync viewing history with Trakt.tv and Letterboxd
 Author: Joost van Someren
 
+Important!
+Make sure `./sync-settings.ini` is writable
+
 Settings:
 ./sync-settings.ini
 
