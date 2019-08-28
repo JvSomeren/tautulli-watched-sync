@@ -1,5 +1,5 @@
 # Tautulli watched sync
-Automatically synchronise watched TV Shows to Trakt.tv.
+Automatically synchronise watched TV Shows to Trakt.tv and movies to Letterboxd
 
 ## Setup
 Download `trakt_letterboxd_sync.py` and `sync_settings.ini.example` to your Tautulli host.
