@@ -57,7 +57,8 @@ Script Arguments:
 Tautulli > Settings > Notification Agents > New Script > Script Arguments:
   
   Select: Watched
-  Arguments:  --contentType {media_type}
+  Arguments:  --userId {user_id} --contentType {media_type}
+              <movie>--imdbId {imdb_id}</movie>
               <episode>--tvdbId {thetvdb_id} --season {season_num} --episode {episode_num}</episode>
 
   Save
