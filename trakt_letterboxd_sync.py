@@ -476,10 +476,10 @@ if __name__ == "__main__":
     sys.exit(0)
 
   if opts.contentType == 'trakt_authenticate':
-    trakt = Trakt(None, None)
+    trakt = Trakt(None, None, None)
     trakt.authenticate()
   elif opts.contentType == 'trakt_refresh':
-    trakt = Trakt(None, None)
+    trakt = Trakt(None, None, None)
     trakt.refresh_access_token()
   elif opts.contentType == 'letterboxd_authenticate':
     letterboxd = Letterboxd(None)

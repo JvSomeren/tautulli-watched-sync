@@ -21,7 +21,7 @@ Rename `sync_settings.ini.example` to `sync_settings.ini` and add the `user_ids`
 
   To set the access code use `urn:ietf:wg:oauth:2.0:oob` as a redirect URI on your application.
   Then execute the script:
-  python ./trakt_letterboxd_sync.py --contentType trakt_authenticate -userId -1
+  python ./trakt_letterboxd_sync.py --contentType trakt_authenticate --userId -1
   And follow the instructions shown.
 
   [Letterboxd]
