@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 """
 Description: Sync viewing history with Trakt.tv and Letterboxd
 Author: Joost van Someren
