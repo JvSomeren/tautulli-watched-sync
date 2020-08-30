@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 """
@@ -79,9 +79,8 @@ import uuid
 import hmac
 from getpass import getpass
 from hashlib import sha256
-import binascii
 
-from ConfigParser import ConfigParser, NoOptionError, NoSectionError
+from configparser import ConfigParser, NoOptionError, NoSectionError
 
 TAUTULLI_ENCODING = os.getenv('TAUTULLI_ENCODING', 'UTF-8')
 
@@ -91,7 +90,7 @@ credential_file = 'sync_settings.ini'
 config = ConfigParser()
 try:
   with open('%s/%s' % (credential_path,credential_file)) as f:
-    config.readfp(f)
+    config.read_file(f)
 except IOError:
   print('ERROR: %s/%s not found' % (credential_path,credential_file))
   sys.exit(1)
@@ -103,7 +102,7 @@ def arg_decoding(arg):
 def write_settings():
   """Write config back to settings file"""
   try:
-    with open('%s/%s' % (credential_path,credential_file), 'wb') as f:
+    with open('%s/%s' % (credential_path,credential_file), 'w') as f:
       config.write(f)
   except IOError:
     print('ERROR: unable to write to %s/%s' % (credential_path,credential_file))
@@ -168,7 +167,7 @@ class Trakt:
     response = r.json()
     print('Please go to %s and insert the following code: "%s"' % (response['verification_url'], response['user_code']))
 
-    i = raw_input('I have authorized the application! Press ENTER to continue:')
+    i = input('I have authorized the application! Press ENTER to continue:')
 
     return response['device_code']
 
@@ -181,7 +180,7 @@ class Trakt:
 
     r = requests.post('https://api.trakt.tv/oauth/device/token', json=payload, headers=headers)
     if r.status_code == 400:
-      i = raw_input('The device hasn\'t been authorized yet, please do so. Press ENTER to continue:')
+      i = input('The device hasn\'t been authorized yet, please do so. Press ENTER to continue:')
       return self.poll_access_token(self, headers, device_code)
     elif r.status_code != 200:
       print('Something went wrong, please try again.')
@@ -335,7 +334,7 @@ class Letterboxd:
       'Accept': 'application/json'
     }
 
-    username = raw_input('Username or email address: ')
+    username = input('Username or email address: ')
     password = getpass('Password: ')
 
     payload = {
@@ -458,7 +457,7 @@ if __name__ == "__main__":
   parser.add_argument('--userId', required=True, type=int,
                       help='The user_id of the current user.')
 
-  parser.add_argument('--contentType', required=True, type=arg_decoding,
+  parser.add_argument('--contentType', required=True, type=str,
                       help='The type of content, movie or episode.')
 
   parser.add_argument('--tvdbId', type=int,
@@ -470,7 +469,7 @@ if __name__ == "__main__":
   parser.add_argument('--episode', type=int,
                       help='Episode number.')
 
-  parser.add_argument('--imdbId', type=arg_decoding,
+  parser.add_argument('--imdbId', type=str,
                       help='IMDB ID.')
 
   opts = parser.parse_args()
